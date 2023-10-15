@@ -6,8 +6,8 @@ greenlet==1.1.2
 itsdangerous==2.0.1
 Jinja2==3.0.3
 MarkupSafe==2.0.1
-pandas==0.25.3
-numpy
+numpy==1.18.2
+pandas
 Pillow
 PyMySQL
 python-dateutil
