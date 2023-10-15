@@ -5,6 +5,15 @@ from wxcloudrun.dao import delete_counterbyid, query_counterbyid, insert_counter
 from wxcloudrun.model import Counters
 from wxcloudrun.response import make_succ_empty_response, make_succ_response, make_err_response
 
+import base64
+import io
+import json
+from cmath import sqrt
+from flask import Flask, request, jsonify
+from dao import save_to_db,get_all_images,get_dominant_color
+from flask_cors import cross_origin
+import PIL.Image as Image
+
 
 @app.route('/')
 def index():
@@ -64,3 +73,94 @@ def get_count():
     """
     counter = Counters.query.filter(Counters.id == 1).first()
     return make_succ_response(0) if counter is None else make_succ_response(counter.count)
+
+
+app = Flask(__name__)
+
+@app.route('/upload', methods=['POST'])
+@cross_origin(supports_credentials=True)
+def upload():
+
+  file = request.files['file']
+  img = file.read()
+  image = Image.open(io.BytesIO(img))
+  image = image.convert('RGB')
+
+  feat = get_dominant_color(image)[0]
+  print(get_dominant_color(image)[1])
+  print(feat)
+
+  save_to_db(img, feat)
+
+  return 'Uploaded'
+
+
+# @app.route('/search', methods=['POST'])
+# @cross_origin(supports_credentials=True)
+# def search():
+#   file = request.files['file']
+#
+#   # 从 FileStorage 对象读取图片数据
+#   img = file.read()
+#   image = Image.open(io.BytesIO(img))
+#   image = image.convert('RGB')
+#
+#   feat = get_dominant_color(image)[0]
+#   print(get_dominant_color(image)[1])
+#
+#   result = query_db(feat)
+#   print(result[0])
+#   img_b64 = base64.b64encode(result[0]).decode('utf-8')
+#   return jsonify({'img': img_b64})
+
+@app.route('/search', methods=['POST'])
+@cross_origin(supports_credentials=True)
+def search():
+
+  file = request.files['file']
+
+  img = file.read()
+  image = Image.open(io.BytesIO(img))
+  image = image.convert('RGB')
+
+  target_feat = get_dominant_color(image)[0]
+
+  images = get_all_images()
+
+  most_similar = find_most_similar(images, target_feat)
+  print(most_similar[1])
+  img_b64 = base64.b64encode(most_similar[1]).decode('utf-8')
+
+  return jsonify({'img': img_b64})
+
+
+def find_most_similar(images, target_feat):
+
+  max_sim = 0
+  result = None
+
+  for id, img, feat_json in images:
+
+    feat = json.loads(feat_json)
+
+    sim = cosine_similarity(feat, target_feat)
+    print(sim)
+
+    if sim > max_sim:
+      max_sim = sim
+      result = [id, img]
+
+  return result
+
+
+def cosine_similarity(v1, v2):
+
+  dot = sum(a*b for a,b in zip(v1,v2))
+  mag1 = sqrt(sum(a**2 for a in v1))
+  mag2 = sqrt(sum(b**2 for b in v2))
+
+  sim = dot / (mag1 * mag2)
+  return sim.real
+
+if __name__ == '__main__':
+  app.run()

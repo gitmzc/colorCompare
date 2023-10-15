@@ -3,6 +3,7 @@ from datetime import datetime
 from wxcloudrun import db
 
 
+
 # 计数表
 class Counters(db.Model):
     # 设置结构体表格名称
